@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI勇者鬥魔王：拯救公主大作戰</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #1a202c; color: #e2e8f0; }
+        .attack-hero { animation: heroAttack 0.5s ease-in-out; }
+        .attack-monster { animation: monsterAttack 0.5s ease-in-out; }
+        .shake { animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both; }
+        
+        @keyframes heroAttack {
+            0% { transform: translateX(0); }
+            50% { transform: translateX(50px) scale(1.1); }
+            100% { transform: translateX(0); }
+        }
+        @keyframes monsterAttack {
+            0% { transform: translateX(0); }
+            50% { transform: translateX(-50px) scale(1.1); }
+            100% { transform: translateX(0); }
+        }
+        @keyframes shake {
+            10%, 90% { transform: translate3d(-1px, 0, 0); }
+            20%, 80% { transform: translate3d(2px, 0, 0); }
+            30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+            40%, 60% { transform: translate3d(4px, 0, 0); }
+        }
+        .btn-option { transition: all 0.2s; }
+        .btn-option:hover { transform: translateY(-2px); filter: brightness(1.1); }
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen">
+
+<div id="game-container" class="max-w-3xl w-full bg-gray-800 rounded-xl shadow-2xl p-6 border-4 border-gray-700">
+    <!-- 標題區 -->
+    <div class="text-center mb-6">
+        <h1 class="text-3xl font-bold text-yellow-400 mb-2">⚔️ AI勇者鬥魔王 🛡️</h1>
+        <p class="text-gray-400">運用你的人工智慧知識，擊敗怪物拯救公主！</p>
+    </div>
+
+    <!-- 遊戲畫面區 (預設隱藏，按開始後顯示) -->
+    <div id="start-screen" class="text-center py-10">
+        <p class="mb-8 text-lg">公主被困在魔王城中，你需要連續答對 16 道 AI 關卡才能將她救出。<br>你有 5 點生命值，準備好了嗎？</p>
+        <button onclick="startGame()" class="px-8 py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-full text-xl shadow-lg transition-transform transform hover:scale-105">開始冒險</button>
+    </div>
+
+    <!-- 戰鬥與問答區 -->
+    <div id="battle-screen" class="hidden">
+        <!-- 狀態列 -->
+        <div class="flex justify-between items-center mb-8 px-4">
+            <div class="text-center">
+                <div class="text-xl font-bold text-blue-400 mb-1">🧑‍🎤 勇者</div>
+                <div class="flex gap-1 text-red-500 text-2xl" id="hero-hp">❤️❤️❤️❤️❤️</div>
+            </div>
+            <div class="text-xl font-bold text-gray-300">
+                關卡: <span id="stage-text">1 / 16</span>
+            </div>
+            <div class="text-center">
+                <div class="text-xl font-bold text-red-400 mb-1" id="monster-name">👾 史萊姆</div>
+                <div class="w-32 bg-gray-700 rounded-full h-4 mt-2 border border-gray-600">
+                    <div id="monster-hp-bar" class="bg-red-500 h-full rounded-full" style="width: 100%;"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 戰鬥動畫展示區 -->
+        <div class="flex justify-between items-center mb-8 h-32 px-10">
+            <div id="hero-sprite" class="text-6xl">🧑‍🎤</div>
+            <div id="action-text" class="text-2xl font-bold text-yellow-300 opacity-0 transition-opacity">攻擊！</div>
+            <div id="monster-sprite" class="text-6xl">👾</div>
+        </div>
+
+        <!-- 題目區 -->
+        <div class="bg-gray-700 p-6 rounded-lg mb-6 shadow-inner border border-gray-600">
+            <h2 id="question-text" class="text-lg font-semibold mb-4 leading-relaxed">題目讀取中...</h2>
+            <div id="options-container" class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <!-- 選項按鈕由 JS 產生 -->
+            </div>
+        </div>
+    </div>
+
+    <!-- 結局畫面區 -->
+    <div id="end-screen" class="hidden text-center py-10">
+        <h2 id="end-title" class="text-4xl font-bold mb-4">結局</h2>
+        <div id="end-sprite" class="text-6xl mb-4">👸</div>
+        <p id="end-desc" class="text-xl mb-6">描述</p>
+        <p class="text-lg mb-8 text-gray-400">總得分: <span id="final-score" class="text-yellow-400 font-bold text-2xl">0</span> / 16</p>
+        <button onclick="location.reload()" class="px-6 py-2 bg-gray-600 hover:bg-gray-500 text-white font-bold rounded-lg transition-colors">再挑戰一次</button>
+    </div>
+</div>
+
+<script>
+    const questions = [
+        { q: "智慧製造中,「標準化作業」的英文簡稱為？", options: ["SOP", "AGV", "CPS", "Internet"], answer: 0 },
+        { q: "機器學習有三種主要的類型:監督學習、非監督學習和__學習,各自有著不同的特點。", options: ["自主", "優化", "重複", "強化"], answer: 3 },
+        { q: "智能家居的英文是？", options: ["Internet home", "Internet house", "smart stay", "smart home"], answer: 3 },
+        { q: "國際自動機工程師學會定義的自動駕駛為六級,「完全自動駕駛」的車輛是指哪一級?", options: ["等級0", "等級4", "等級5", "等級1"], answer: 2 },
+        { q: "__是人工智慧的核心技術之一，主要使用歸納、綜合而不是演繹。", options: ["強化學習", "機器學習", "推薦引擎", "搜尋引擎"], answer: 1 },
+        { q: "所謂神經網路(neural network),是指以人腦和神經系統為模型的一種__演算法。", options: ["深度優先", "倒檔追溯", "機器學習", "直接搜索"], answer: 2 },
+        { q: "產品生命週期管理是一種對智慧工廠所有與產品相關的資料進行管理的技術,英文簡稱為？", options: ["CPS", "PLM", "Internet", "AGV"], answer: 1 },
+        { q: "__被認為可能是繼互聯網之後,人類最偉大的技術革命。", options: ["IoT", "AI", "Internet", "Database"], answer: 1 },
+        { q: "智慧城市的英文是？", options: ["Smart IoT", "Internet city", "smart district", "smart city"], answer: 3 },
+        { q: "智慧工廠是以__作為基本資料的搜集機制,所得到的大數據將是重要資產。", options: ["物聯網(IoT)", "自動導引運輸車AGV", "虛實合一系統CPS", "機器人"], answer: 0 },
+        { q: "人工智慧是電腦科學的一個分支,人工智慧的英文縮寫是？", options: ["BI", "APP", "DI", "AI"], answer: 3 },
+        { q: "製造執行系統的英文簡稱是？", options: ["AGV", "CPS", "MES", "SOP"], answer: 2 },
+        { q: "智慧客服,又稱智慧客服機器人,它的英文名稱是？", options: ["business intelligence", "intelligent customer service", "ERP", "CRM"], answer: 1 },
+        { q: "大數據的數據存儲單位,1TB (terabyte) 等於？", options: ["1,024 MB", "1,024 KB", "1,024 PB", "1,024 GB"], answer: 3 },
+        { q: "第四次的工業革命(簡稱工業4.0)是__的革命。", options: ["電氣化", "機械化", "信息化", "智能化"], answer: 3 },
+        { q: "智慧交通的軌道交通系統,所謂“列車自動保護系統”,就是指？", options: ["車聯網", "互聯網", "物聯網IoT", "ATP"], answer: 3 }
+    ];
+
+    let currentQ = 0;
+    let heroHp = 5;
+    let score = 0;
+    let isAnimating = false;
+
+    // 怪物設定 (每4題換一隻)
+    const monsters = [
+        { name: "👾 史萊姆", hp: 4, maxHp: 4 },
+        { name: "🐺 森林野狼", hp: 4, maxHp: 4 },
+        { name: "🧟 黑暗殭屍", hp: 4, maxHp: 4 },
+        { name: "👹 最終魔王", hp: 4, maxHp: 4 }
+    ];
+    let currentMonsterIndex = 0;
+
+    function startGame() {
+        document.getElementById('start-screen').classList.add('hidden');
+        document.getElementById('battle-screen').classList.remove('hidden');
+        loadQuestion();
+        updateUI();
+    }
+
+    function loadQuestion() {
+        if (currentQ >= questions.length) {
+            endGame(true);
+            return;
+        }
+
+        const qData = questions[currentQ];
+        document.getElementById('question-text').innerText = `${currentQ + 1}. ${qData.q}`;
+        
+        const optsContainer = document.getElementById('options-container');
+        optsContainer.innerHTML = '';
+        
+        qData.options.forEach((opt, idx) => {
+            const btn = document.createElement('button');
+            btn.className = 'btn-option w-full py-3 px-4 bg-gray-600 hover:bg-blue-600 text-left rounded-lg font-medium border border-gray-500 focus:outline-none';
+            btn.innerText = `(${String.fromCharCode(65 + idx)}) ${opt}`;
+            btn.onclick = () => checkAnswer(idx);
+            optsContainer.appendChild(btn);
+        });
+
+        // 檢查是否需要換怪
+        if (currentQ > 0 && currentQ % 4 === 0) {
+            currentMonsterIndex++;
+            showActionText("遭遇新怪物！", "text-yellow-400");
+        }
+        updateUI();
+    }
+
+    function checkAnswer(selectedIdx) {
+        if (isAnimating) return;
+        isAnimating = true;
+
+        const qData = questions[currentQ];
+        const isCorrect = (selectedIdx === qData.answer);
+
+        if (isCorrect) {
+            score++;
+            monsters[currentMonsterIndex].hp--;
+            heroAttackAnimation();
+        } else {
+            heroHp--;
+            monsterAttackAnimation();
+        }
+
+        setTimeout(() => {
+            currentQ++;
+            if (heroHp <= 0) {
+                endGame(false);
+            } else {
+                loadQuestion();
+            }
+            isAnimating = false;
+        }, 1500);
+    }
+
+    function heroAttackAnimation() {
+        const hero = document.getElementById('hero-sprite');
+        const monster = document.getElementById('monster-sprite');
+        
+        showActionText("答對了！勇者攻擊！", "text-blue-400");
+        hero.classList.add('attack-hero');
+        
+        setTimeout(() => {
+            monster.classList.add('shake');
+            updateUI();
+        }, 250);
+
+        setTimeout(() => {
+            hero.classList.remove('attack-hero');
+            monster.classList.remove('shake');
+        }, 1000);
+    }
+
+    function monsterAttackAnimation() {
+        const hero = document.getElementById('hero-sprite');
+        const monster = document.getElementById('monster-sprite');
+        
+        showActionText("答錯了！怪物攻擊！", "text-red-500");
+        monster.classList.add('attack-monster');
+        
+        setTimeout(() => {
+            hero.classList.add('shake');
+            updateUI();
+        }, 250);
+
+        setTimeout(() => {
+            monster.classList.remove('attack-monster');
+            hero.classList.remove('shake');
+        }, 1000);
+    }
+
+    function showActionText(text, colorClass) {
+        const actionEl = document.getElementById('action-text');
+        actionEl.innerText = text;
+        actionEl.className = `text-2xl font-bold opacity-100 transition-opacity ${colorClass}`;
+        setTimeout(() => {
+            actionEl.classList.remove('opacity-100');
+            actionEl.classList.add('opacity-0');
+        }, 1200);
+    }
+
+    function updateUI() {
+        // 更新血量愛心
+        let hearts = '';
+        for(let i=0; i<heroHp; i++) hearts += '❤️';
+        document.getElementById('hero-hp').innerText = hearts || '💀';
+
+        // 更新關卡進度
+        document.getElementById('stage-text').innerText = `${Math.min(currentQ + 1, 16)} / 16`;
+
+        // 更新怪物資訊
+        const m = monsters[currentMonsterIndex];
+        if (m) {
+            document.getElementById('monster-name').innerText = m.name;
+            const hpPercent = (Math.max(0, m.hp) / m.maxHp) * 100;
+            document.getElementById('monster-hp-bar').style.width = `${hpPercent}%`;
+            document.getElementById('monster-sprite').innerText = m.name.split(' ')[0];
+        }
+    }
+
+    function endGame(isWin) {
+        document.getElementById('battle-screen').classList.add('hidden');
+        document.getElementById('end-screen').classList.remove('hidden');
+        
+        document.getElementById('final-score').innerText = score;
+        const title = document.getElementById('end-title');
+        const desc = document.getElementById('end-desc');
+        const sprite = document.getElementById('end-sprite');
+
+        if (isWin) {
+            title.innerText = "🎉 挑戰成功！ 🎉";
+            title.className = "text-5xl font-bold mb-4 text-green-400";
+            sprite.innerText = "👸🧑‍🎤";
+            desc.innerText = "你成功擊敗了魔王，用智慧拯救了公主！";
+        } else {
+            title.innerText = "💀 挑戰失敗 💀";
+            title.className = "text-5xl font-bold mb-4 text-red-500";
+            sprite.innerText = "🪦";
+            desc.innerText = "勇者倒下了，魔王依然統治著世界。請重新鍛鍊你的 AI 知識再來挑戰吧！";
+        }
+    }
+</script>
+
+</body>
+</html>
